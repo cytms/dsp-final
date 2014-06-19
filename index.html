@@ -1,0 +1,240 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+
+    <script>
+
+    if (!('webkitSpeechRecognition' in window)) {
+        alert('Web speech API is not supported in this browser');
+      } 
+    else {
+
+        // Speech recognizer init
+        var recognizer = new webkitSpeechRecognition();
+
+        // continously listen to speech
+        recognizer.continuous = true;
+
+        // set languages supported
+        recognizer.lang = 'cmn-Hant-TW';
+        console.log(recognizer.lang);
+        // We return non-final strings so gameplay isn't laggy
+        recognizer.interimResults = true;
+
+        recognizer.onresult = function(e) {
+        // set variable 
+        // var sentence = "";
+        var interim_transcript = '';
+          if (e.results.length) {
+             for (var i = event.resultIndex; i < event.results.length; i++) {
+
+                 interim_transcript = event.results[i][0].transcript; 
+                 // sentence += event.results[i][0].transcript;
+                 console.log("recognition:[" + i + "]: " + interim_transcript);
+                 // if the object isn't moving, allow commands to be sent down.
+                 if(!move){gameLoop(interim_transcript,'voice');}
+              }
+          }
+          // console.log("句子: " + sentence);
+        };
+        
+      // start speech to text translation
+      recognizer.start();
+
+   }
+    // global variables
+    var canvas;
+    var ctx;
+    var move= false;
+    var score =0;
+    var rndNum;
+
+    // amount of pixels moved a cycle
+    var step = 3;
+
+    // ms before animate is fired again
+    var runTime = 10;
+ 
+    // JSON for objects positions and attributes
+    var pos={
+        obj1:{
+            x:0,
+            y:0,
+            width:50,
+            height:50,
+        },
+        pts:{
+            x:0,
+            y:0,
+            width:25,
+            height:25,
+        },
+        rdm:{
+            pos0:{x:0,y:0},
+            pos1:{x:0,y:0},
+            pos2:{x:0,y:0},
+            pos3:{x:0,y:0},
+        },
+        txt:{x:0,y:0}
+    }
+
+    
+
+    var playerImg = new Image();
+    var pointImg = new Image();
+
+    function init(){
+
+      canvas = document.getElementById('cvs');
+      ctx = canvas.getContext("2d");
+
+      //Set canvas dimensions     
+      canvas.width= 480;//window.innerWidth-15;
+      canvas.height= 320;//window.innerHeight-15;
+
+      // position text to be centered
+      pos.txt.x=(canvas.width/2)-5;
+      pos.txt.y=(canvas.height/2)+ pos.obj1.height;
+
+      // Now the canvas dimentions are set, set the corner coordinates into the JSON object for point spawning
+      pos.rdm.pos0={x:0,y:0},
+      pos.rdm.pos1={x:canvas.width-50,y:0},
+      pos.rdm.pos2={x:0,y:canvas.height-50},
+      pos.rdm.pos3={x:canvas.width-50,y:canvas.height-50},
+
+      // set image src for obhjects
+      pointImg.src='images/pts.jpg';
+      playerImg.src='images/obj.jpg';
+      playerImg.onload = function() {  
+        // do first draw and spawn points after images load
+        spawnPoint();
+      };
+
+    
+    }
+
+    function spawnPoint(){
+      // clear old screen 
+      clear();
+
+      // Set the player back to the starting point
+      // Set point to random corner
+      resetPos();
+
+      // Draw score text to screen      
+      drawScore();
+
+      // draw point and player
+      ctx.drawImage(pointImg, pos.pts.x, pos.pts.y); 
+      ctx.drawImage(playerImg, pos.obj1.x, pos.obj1.y);
+
+      // Note: player is last drawn since we want it to have highest z-index
+    }
+
+    function resetPos(){
+
+        var oldRndNum = rndNum;
+        rndNum = Math.floor(Math.random()*4);
+
+        // make sure point isn't in the same position
+        if(oldRndNum == rndNum){
+          if(rndNum>=0){rndNum++}
+          else if(rndNum<=3){rndNum--}
+        }
+
+        // set point to random corner position
+        pos.pts.x = pos['rdm']['pos'+rndNum]['x'];
+        pos.pts.y = pos['rdm']['pos'+rndNum]['y'];
+
+        // place player in the middle
+        pos.obj1.x=(canvas.width/2)-25;
+        pos.obj1.y=(canvas.height/2)-25;
+    }
+
+    function drawScore(){
+      // set font
+      ctx.font = '20pt Calibri';
+      ctx.strokeStyle = 'black';
+      ctx.strokeText(score, pos.txt.x, pos.txt.y);
+
+    }
+
+    function checkPoint(){
+      // if the player pos is within a step of the point, give player the point and reset
+      if(Math.abs((pos.obj1.x-pos.pts.x))<step && Math.abs((pos.obj1.y-pos.pts.y))<step){
+          score++;
+          spawnPoint();
+      }
+    }
+
+    function clear(){
+      // clears screen
+      ctx.fillStyle='#0860a8';
+      ctx.fillRect ( 0 , 0 , canvas.width , canvas.height );
+    }
+      
+    function gameLoop(dir,parent){
+
+    // don't let a setTimeout lapse over to next game
+    if(!move&&parent!='voice'){return}
+
+            switch(dir){
+              // voice sometimes adds space before words, so check for both strings
+              case ' 網上':
+              case '網上':
+                    // if player is still on canvas, subtract step (set above) from
+                    // y coordinate, else we've reached the top, stop player
+                    if(pos.obj1.y>0){move = true;pos.obj1.y-=step;}
+                    else{gameLoop('停下來');return}
+                    break;
+
+               case ' 往下':
+               case '往下':
+                    if(pos.obj1.y<(canvas.height-pos.obj1.height)){move = true;pos.obj1.y+=step;}
+                    else{gameLoop('停下來');return}
+                    break;
+
+               case ' 左邊':
+               case '左邊':
+                    if(pos.obj1.x>0){move = true;pos.obj1.x-=step;}
+                    else{gameLoop('停下來');return}
+                    break;
+
+               case ' 右邊':
+               case '右邊':
+                    if(pos.obj1.x<(canvas.width-pos.obj1.width)){move = true;pos.obj1.x+=step;}
+                    else{gameLoop('停下來');return}
+                    break;
+
+               case ' 停下來':
+               case '停下來':
+                    move = false;
+                    break;
+                default:
+                    move = false;
+                   //console.log(dir);
+            }
+
+        // clear screen every frame
+        clear();
+
+        drawScore();
+        ctx.drawImage(pointImg, pos.pts.x, pos.pts.y);
+        ctx.drawImage(playerImg, pos.obj1.x, pos.obj1.y);
+
+        // if we're not moving, check to see if player got the point
+        if(!move){setTimeout("checkPoint();",500);return}
+        //if it's still moving, animate 
+        else {setTimeout("gameLoop('"+dir+"')",runTime);}
+        //console.log(dir);
+    }
+
+
+    </script>
+  </head>
+  <body onload='init();'>
+
+    <canvas id='cvs'></canvas>
+  </body>
+</html>
